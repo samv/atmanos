@@ -31,6 +31,10 @@ func (*File) Stat() (FileInfo, error) {
 	return nil, ErrInvalid
 }
 
+func (*File) Sync() error {
+	return ErrInvalid
+}
+
 func (*File) read(b []byte) (n int, err error) {
 	return 0, ErrNotExist
 }
