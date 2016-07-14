@@ -28,8 +28,9 @@ type buffer struct {
 type Device struct {
 	Backend uint32
 
-	Tx     *xen.FrontendRing
-	TxGref xen.Gref
+	Tx        *xen.FrontendRing
+	TxBuffers []buffer
+	TxGref    xen.Gref
 
 	Rx        *xen.FrontendRing
 	RxBuffers []buffer
@@ -57,6 +58,7 @@ func initNetworking() (*Device, error) {
 	txPage := mm.AllocPage()
 	dev.Tx = newTxRing(initSharedRing(txPage))
 	dev.TxGref = mustGrantAccess(dev.Backend, txPage.Frame, false)
+	dev.TxBuffers = make([]buffer, dev.Tx.EntryCount)
 
 	rxPage := mm.AllocPage()
 	dev.Rx = newRxRing(initSharedRing(rxPage))
@@ -90,6 +92,26 @@ func initRxPages(dev *Device) {
 	}
 
 	if notify := dev.Rx.PushRequests(); notify {
+		dev.EventChannel.Notify()
+	}
+}
+
+// initTxPages allocates buffers for transmitting packets
+// and sends them to the backend.
+func initTxPages(dev *Device) {
+	for i := range dev.TxBuffers {
+		buf := &dev.TxBuffers[i]
+		buf.Page = mm.AllocPage()
+		buf.Gref = mustGrantAccess(dev.Backend, buf.Page.Frame, false)
+
+		// XXX presumably this happens when we're ready to send
+		//req := (*NetifTxRequest)(dev.Rx.NextRequest())
+		//req.ID = uint16(i)
+		//req.Gref = buf.Gref
+	}
+
+	// XXX is this needed?
+	if notify := dev.Tx.PushRequests(); notify {
 		dev.EventChannel.Notify()
 	}
 }
